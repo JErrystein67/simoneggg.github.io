@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Šimonovo hledání: KONEČNÁ VERZE</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background: #e8f5e9;
+            font-family: 'Arial Rounded MT Bold', sans-serif;
+            overflow: hidden; text-align: center; touch-action: manipulation;
+        }
+        #ui {
+            padding: 15px; background: white; border-bottom: 3px solid #4caf50;
+            display: flex; justify-content: space-around; align-items: center;
+        }
+        .stat { font-size: 22px; font-weight: bold; color: #2e7d32; }
+        #game-area { width: 100vw; height: 80vh; position: relative; }
+        .egg { position: absolute; font-size: 55px; user-select: none; z-index: 10; cursor: pointer; }
+        
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
+        }
+        .modal { background: white; padding: 25px; border-radius: 20px; color: #333; width: 300px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        input { padding: 10px; font-size: 18px; width: 80%; margin: 15px 0; border: 2px solid #4caf50; border-radius: 10px; }
+        button { padding: 12px 25px; font-size: 18px; background: #ff8c00; color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
+        
+        table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        
+        #end-screen { display: none; background: black; flex-direction: column; }
+        #end-screen img { width: 100%; height: auto; max-height: 80vh; object-fit: contain; }
+        #dead-msg { color: #ff0000; font-size: 30px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; }
+
+        @keyframes shake {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-3px, -2px); }
+            100% { transform: translate(2px, 3px); }
+        }
+        .vibrate { animation: shake 0.1s infinite; }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay" class="overlay">
+        <div class="modal">
+            <h2>Šimonova Výzva</h2>
+            <p>Zadej jméno:</p>
+            <input type="text" id="player-name" placeholder="Jméno..." maxlength="12">
+            <button onclick="initGame()">HRÁT</button>
+        </div>
+    </div>
+
+    <div id="leaderboard-overlay" class="overlay" style="display: none;">
+        <div class="modal">
+            <h2 id="finish-title">Konec!</h2>
+            <div id="your-result" style="font-size: 20px; margin-bottom: 15px; color: #2e7d32; font-weight: bold;"></div>
+            <h3>TOP HRÁČI:</h3>
+            <table id="score-table">
+                <tbody id="score-body"></tbody>
+            </table>
+            <br>
+            <button onclick="showChicken()">DOKONČIT</button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="overlay">
+        <div id="dead-msg">PŘÍSTUP ODPEČETĚN</div>
+        <img src="https://static.wikia.nocookie.net/meme/images/7/7d/Chicken_Screaming_on_Tree.jpg" alt="Chicken">
+    </div>
+
+    <div id="ui">
+        <div class="stat">👤 <span id="display-name">?</span></div>
+        <div class="stat">🥚 <span id="score">0</span></div>
+        <div class="stat">⏱️ <span id="timer">30</span>s</div>
+    </div>
+
+    <div id="game-area"></div>
+
+    <audio id="snd-vibrate" src="https://assets.mixkit.co/active_storage/sfx/1000/1000-preview.mp3"></audio>
+    <audio id="snd-chicken" src="https://www.myinstants.com/media/sounds/chicken-on-tree-screaming.mp3"></audio>
+
+    <script>
+        let score = 0;
+        let timeLeft = 30;
+        let playerName = "";
+        let gameActive = false;
+        let timerInterval;
+
+        const gArea = document.getElementById('game-area');
+        const vSound = document.getElementById('snd-vibrate');
+        const cSound = document.getElementById('snd-chicken');
+
+        function initGame() {
+            const nameInput = document.getElementById('player-name').value;
+            if(!nameInput) return alert("Zadej jméno!");
+            playerName = nameInput;
+            document.getElementById('display-name').innerText = playerName;
+            document.getElementById('start-overlay').style.display = 'none';
+            
+            gameActive = true;
+            startTimer();
+            for(let i=0; i<3; i++) spawnEgg();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+                if(timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function spawnEgg() {
+            if(!gameActive) return;
+            const egg = document.createElement('div');
+            egg.className = 'egg';
+            egg.innerHTML = '🥚';
+            egg.style.left = Math.random() * 80 + 10 + '%';
+            egg.style.top = Math.random() * 80 + 10 + '%';
+
+            const collect = (e) => {
+                e.preventDefault();
+                if(!gameActive) return;
+
+                // Vibrace a zvuk jen během hry
+                if(navigator.vibrate) navigator.vibrate(100);
+                vSound.currentTime = 0;
+                vSound.play();
+
+                score++;
+                document.getElementById('score').innerText = score;
+                
+                egg.classList.add('vibrate');
+                setTimeout(() => {
+                    if(egg.parentNode) gArea.removeChild(egg);
+                    spawnEgg();
+                }, 100);
+            };
+
+            egg.onmousedown = collect;
+            egg.ontouchstart = collect;
+            gArea.appendChild(egg);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            
+            // --- VYPNUTÍ ZVUKŮ VAJÍČEK ---
+            vSound.pause();
+            vSound.currentTime = 0;
+
+            // Vyčištění plochy
+            gArea.innerHTML = "";
+            
+            saveScore(playerName, score);
+            displayLeaderboard();
+            
+            document.getElementById('your-result').innerText = `Nasbíráno: ${score}`;
+            document.getElementById('leaderboard-overlay').style.display = 'flex';
+        }
+
+        function saveScore(name, points) {
+            let history = JSON.parse(localStorage.getItem('simon_records')) || [];
+            history.push({name: name, score: points});
+            history.sort((a, b) => b.score - a.score);
+            localStorage.setItem('simon_records', JSON.stringify(history.slice(0, 5)));
+        }
+
+        function displayLeaderboard() {
+            const history = JSON.parse(localStorage.getItem('simon_records')) || [];
+            document.getElementById('score-body').innerHTML = history
+                .map(item => `<tr><td>${item.name}</td><td><b>${item.score}</b></td></tr>`)
+                .join('');
+        }
+
+        function showChicken() {
+            document.getElementById('leaderboard-overlay').style.display = 'none';
+            document.getElementById('end-screen').style.display = 'flex';
+            
+            // Pustí jen zvuk kuřete
+            cSound.currentTime = 0;
+            cSound.play();
+            
+            // Definitivní "rozbití" stránky pro další interakci
+            document.body.onclick = () => { cSound.play(); };
+        }
+    </script>
+</body>
+</html>
