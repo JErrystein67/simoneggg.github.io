@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Šimonovo hledání: ULTIMÁTNÍ VERZE</title>
+    <title>Šimonovo hledání: KONEČNÁ VERZE</title>
     <style>
         body {
             margin: 0; padding: 0; background: #e8f5e9;
@@ -32,7 +32,7 @@
         
         #end-screen { display: none; background: black; flex-direction: column; }
         #end-screen img { width: 100%; height: auto; max-height: 80vh; object-fit: contain; }
-        #dead-msg { color: #ff0000; font-size: 30px; margin-bottom: 20px; font-weight: bold; }
+        #dead-msg { color: #ff0000; font-size: 30px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; }
 
         @keyframes shake {
             0% { transform: translate(2px, 2px); }
@@ -47,17 +47,17 @@
     <div id="start-overlay" class="overlay">
         <div class="modal">
             <h2>Šimonova Výzva</h2>
-            <p>Zadej jméno do tabulky:</p>
-            <input type="text" id="player-name" placeholder="Tvé jméno..." maxlength="12">
-            <button onclick="initGame()">SPUSTIT HRU</button>
+            <p>Zadej jméno:</p>
+            <input type="text" id="player-name" placeholder="Jméno..." maxlength="12">
+            <button onclick="initGame()">HRÁT</button>
         </div>
     </div>
 
     <div id="leaderboard-overlay" class="overlay" style="display: none;">
         <div class="modal">
-            <h2>Konec času!</h2>
+            <h2 id="finish-title">Konec!</h2>
             <div id="your-result" style="font-size: 20px; margin-bottom: 15px; color: #2e7d32; font-weight: bold;"></div>
-            <h3>TOP 5 ŠAMPIÓNŮ:</h3>
+            <h3>TOP HRÁČI:</h3>
             <table id="score-table">
                 <tbody id="score-body"></tbody>
             </table>
@@ -67,7 +67,7 @@
     </div>
 
     <div id="end-screen" class="overlay">
-        <div id="dead-msg">SYSTÉM ZABLOKOVÁN</div>
+        <div id="dead-msg">PŘÍSTUP ODPEČETĚN</div>
         <img src="https://static.wikia.nocookie.net/meme/images/7/7d/Chicken_Screaming_on_Tree.jpg" alt="Chicken">
     </div>
 
@@ -79,8 +79,7 @@
 
     <div id="game-area"></div>
 
-    <audio id="snd-vibration" src="https://www.myinstants.com/media/sounds/vibrations.mp3"></audio>
-    <audio id="snd-point" src="https://www.myinstants.com/media/sounds/ding-sound-effect_1.mp3"></audio>
+    <audio id="snd-vibrate" src="https://assets.mixkit.co/active_storage/sfx/1000/1000-preview.mp3"></audio>
     <audio id="snd-chicken" src="https://www.myinstants.com/media/sounds/chicken-on-tree-screaming.mp3"></audio>
 
     <script>
@@ -91,9 +90,8 @@
         let timerInterval;
 
         const gArea = document.getElementById('game-area');
-        const sVibrate = document.getElementById('snd-vibration');
-        const sPoint = document.getElementById('snd-point');
-        const sChicken = document.getElementById('snd-chicken');
+        const vSound = document.getElementById('snd-vibrate');
+        const cSound = document.getElementById('snd-chicken');
 
         function initGame() {
             const nameInput = document.getElementById('player-name').value;
@@ -127,16 +125,10 @@
                 e.preventDefault();
                 if(!gameActive) return;
 
-                // Fyzická vibrace
-                if(navigator.vibrate) navigator.vibrate(150);
-
-                // Zvuk bodu (Ding)
-                sPoint.currentTime = 0;
-                sPoint.play();
-
-                // Zvuk vibrace (Vrrr)
-                sVibrate.currentTime = 0;
-                sVibrate.play();
+                // Vibrace a zvuk jen během hry
+                if(navigator.vibrate) navigator.vibrate(100);
+                vSound.currentTime = 0;
+                vSound.play();
 
                 score++;
                 document.getElementById('score').innerText = score;
@@ -157,27 +149,29 @@
             gameActive = false;
             clearInterval(timerInterval);
             
-            // Okamžité vypnutí zvuků vajíček
-            sVibrate.pause();
-            sPoint.pause();
-            
+            // --- VYPNUTÍ ZVUKŮ VAJÍČEK ---
+            vSound.pause();
+            vSound.currentTime = 0;
+
+            // Vyčištění plochy
             gArea.innerHTML = "";
+            
             saveScore(playerName, score);
             displayLeaderboard();
             
-            document.getElementById('your-result').innerText = `Tvé skóre: ${score}`;
+            document.getElementById('your-result').innerText = `Nasbíráno: ${score}`;
             document.getElementById('leaderboard-overlay').style.display = 'flex';
         }
 
         function saveScore(name, points) {
-            let history = JSON.parse(localStorage.getItem('simon_eggs_v3')) || [];
+            let history = JSON.parse(localStorage.getItem('simon_records')) || [];
             history.push({name: name, score: points});
             history.sort((a, b) => b.score - a.score);
-            localStorage.setItem('simon_eggs_v3', JSON.stringify(history.slice(0, 5)));
+            localStorage.setItem('simon_records', JSON.stringify(history.slice(0, 5)));
         }
 
         function displayLeaderboard() {
-            const history = JSON.parse(localStorage.getItem('simon_eggs_v3')) || [];
+            const history = JSON.parse(localStorage.getItem('simon_records')) || [];
             document.getElementById('score-body').innerHTML = history
                 .map(item => `<tr><td>${item.name}</td><td><b>${item.score}</b></td></tr>`)
                 .join('');
@@ -186,9 +180,13 @@
         function showChicken() {
             document.getElementById('leaderboard-overlay').style.display = 'none';
             document.getElementById('end-screen').style.display = 'flex';
-            sChicken.play();
-            // Zablokování stránky
-            document.body.onclick = () => { sChicken.play(); };
+            
+            // Pustí jen zvuk kuřete
+            cSound.currentTime = 0;
+            cSound.play();
+            
+            // Definitivní "rozbití" stránky pro další interakci
+            document.body.onclick = () => { cSound.play(); };
         }
     </script>
 </body>
